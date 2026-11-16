@@ -1,0 +1,130 @@
+import Event from '../models/Event.js';
+import Registration from '../models/Registration.js';
+import User from '../models/User.js';
+
+// @desc    Get aggregate metrics for Administrator Dashboard
+// @route   GET /api/admin/dashboard
+// @access  Admin Only
+export async function getDashboardStats(req, res, next) {
+  try {
+    const totalEvents = await Event.countDocuments();
+    const upcomingEvents = await Event.countDocuments({
+      date: { $gte: new Date() },
+    });
+    const totalRegistrations = await Registration.countDocuments();
+
+    // Calculate capacity metrics across all published events
+    const events = await Event.find().select('capacity registeredCount');
+    let totalCapacity = 0;
+    let totalBooked = 0;
+
+    events.forEach((ev) => {
+      totalCapacity += ev.capacity || 0;
+      totalBooked += ev.registeredCount || 0;
+    });
+
+    const averageFillRate = totalCapacity > 0 ? `${Math.round((totalBooked / totalCapacity) * 100)}%` : '0%';
+
+    return res.status(200).json({
+      success: true,
+      stats: {
+        totalEvents,
+        upcomingEvents,
+        totalRegistrations,
+        averageFillRate,
+        totalCapacity,
+        totalBooked,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// @desc    Get complete participant & attendance roster for an event
+// @route   GET /api/admin/events/:id/participants
+// @access  Admin Only
+export async function getEventParticipants(req, res, next) {
+  try {
+    const event = await Event.findById(req.params.id);
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Campus event not found',
+      });
+    }
+
+    const registrations = await Registration.find({ event: event._id })
+      .populate('user', 'name email usn section department batch')
+      .sort({ registeredAt: 1 });
+
+    const participants = registrations.map((r, idx) => ({
+      id: r._id,
+      ticketCode: r.ticketCode,
+      name: r.user?.name || 'Enrolled Student',
+      email: r.user?.email || 'N/A',
+      usn: r.user?.usn || 'N/A',
+      section: r.user?.section || 'N/A',
+      branch: r.user?.department || 'CSE',
+      status: r.status,
+      checkedInAt: r.checkedInAt ? new Date(r.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null,
+      registeredAt: r.registeredAt,
+    }));
+
+    const checkedInCount = participants.filter((p) => p.status === 'Checked In').length;
+
+    return res.status(200).json({
+      success: true,
+      event: {
+        id: event._id,
+        title: event.title,
+        category: event.category,
+        date: event.date,
+        time: event.time,
+        venue: event.venue,
+        capacity: event.capacity,
+        registeredCount: event.registeredCount,
+      },
+      count: participants.length,
+      checkedInCount,
+      participants,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// @desc    Toggle physical attendance check-in for an attendee
+// @route   PATCH /api/admin/registrations/:registrationId/checkin
+// @access  Admin Only
+export async function toggleAttendanceCheckIn(req, res, next) {
+  try {
+    const registration = await Registration.findById(req.params.registrationId).populate('user', 'name usn');
+
+    if (!registration) {
+      return res.status(404).json({
+        success: false,
+        message: 'Registration entry not found',
+      });
+    }
+
+    const isPresent = registration.status === 'Checked In';
+    registration.status = isPresent ? 'Confirmed' : 'Checked In';
+    registration.checkedInAt = isPresent ? null : new Date();
+
+    await registration.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Attendance updated: ${registration.user?.name} (${registration.user?.usn}) marked as ${registration.status}`,
+      data: {
+        id: registration._id,
+        status: registration.status,
+        checkedInAt: registration.checkedInAt ? new Date(registration.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}

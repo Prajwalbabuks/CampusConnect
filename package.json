@@ -1,0 +1,16 @@
+{
+  "name": "nie-campusconnect-fullstack",
+  "version": "1.0.0",
+  "description": "NIE CampusConnect - Full-Stack MERN Event Reservation & Attendance System",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n \"API,CLIENT\" -c \"blue,green\" \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "server": "npm run dev --prefix server",
+    "client": "npm run dev --prefix client",
+    "seed": "npm run seed --prefix server",
+    "build": "npm run build --prefix client"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
