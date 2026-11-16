@@ -234,11 +234,6 @@ NODE_ENV=development
 # Client Origin (Must match Vite's development URL for CORS & cookies)
 CLIENT_URL=http://localhost:5173
 
-# Seed Script Safety Flag
-SEED_CONFIRM=true
-SEED_ADMIN_EMAIL=admin@nie.ac.in
-SEED_ADMIN_PASSWORD=niePass2026!
-```
 
 #### Frontend Setup (`client/.env`)
 Create a `.env` file inside the `client/` directory:
