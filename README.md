@@ -17,7 +17,7 @@
   - [3. Database Seeding](#3-database-seeding)
   - [4. Running the Application](#4-running-the-application)
 - [Environment Variables](#-environment-variables)
-- [Default Credentials](#-default-credentials)
+- [Seed Administrator](#seed-administrator)
 - [API Endpoints Reference](#-api-endpoints-reference)
 - [Git & Security Policies](#-git--security-policies)
 - [License & Institutional Context](#-license--institutional-context)
@@ -68,7 +68,7 @@ It provides a seamless, self-service portal for students across all engineering 
 * **Authentication:** Stateless JSON Web Tokens (JWT) stored in secure `httpOnly` cookies with `SameSite` protections
 * **Password Hashing:** `bcryptjs` (Salt factor: 10)
 * **Input Validation:** Zod schemas applied as pre-handler middleware on all mutation endpoints
-* **Security & Hardening:** Helmet (HTTP security headers), strict rate limiting (`express-rate-limit`), CORS whitelist, and sanitized query parsing
+* **Security & Hardening:** explicit HTTP security headers, strict rate limiting (`express-rate-limit`), CORS whitelist, and sanitized query parsing
 
 ---
 
@@ -141,7 +141,7 @@ FSD EL/
 │       │   ├── errorMiddleware.js  # Global error handler with formatted JSON output
 │       │   ├── rateLimitMiddleware.js # Strict auth & general API rate limiters
 │       │   ├── roleMiddleware.js   # Admin-only authorization guard
-│       │   └── securityMiddleware.js # Helmet & security headers
+│       │   └── securityMiddleware.js # Explicit security headers
 │       ├── models/
 │       │   ├── Event.js            # Event schema, indexes & capacity validations
 │       │   ├── Registration.js     # Compound unique index ([event, user]), check-in status
@@ -212,19 +212,19 @@ The application uses environment variables for database connections, JWT secrets
 #### Backend Setup (`server/.env`)
 Create a `.env` file inside the `server/` directory:
 
-```bash
-# In server/
-copy .env.example .env
+```powershell
+# In server/ (create only when one does not already exist)
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
-Open `server/.env` and update the required values:
+`server/.env` is ignored by Git and is prepared locally. Keep it if it already contains your values; do not overwrite it. Fill the required values and use the defaults for local development unless you need to change them:
 
 ```env
 # Database Connection
-MONGO_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/nie_campusconnect?retryWrites=true&w=majority
+MONGO_URI=<your-mongodb-connection-uri>
 
 # Authentication Secret (Generate using crypto random string)
-JWT_SECRET=super_secret_jwt_key_at_least_32_characters_long
+JWT_SECRET=<generate-a-random-secret-locally>
 JWT_EXPIRES_IN=7d
 
 # Server Configuration
@@ -233,14 +233,19 @@ NODE_ENV=development
 
 # Client Origin (Must match Vite's development URL for CORS & cookies)
 CLIENT_URL=http://localhost:5173
+SEED_ADMIN_EMAIL=<your-seed-admin-email>
+SEED_ADMIN_PASSWORD=<strong-unique-password-14-72-characters>
+```
 
 
 #### Frontend Setup (`client/.env`)
-Create a `.env` file inside the `client/` directory:
+`client/.env` contains only the public API URL. Vite exposes `VITE_*` values in the browser bundle, so never put credentials or secrets there. Keep an existing file; do not overwrite it.
 
-```bash
-# In client/
-copy .env.example .env
+If needed, create it from the example:
+
+```powershell
+# In client/ (create only when one does not already exist)
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
 Verify that `client/.env` contains:
@@ -253,18 +258,18 @@ VITE_API_URL=http://localhost:5000/api
 
 ### 3. Database Seeding
 
-To initialize the database with the default administrative account and four authentic NIE events (with zero registrations):
+Provision the Seed Admin using the email and password configured in `server/.env`. This operation preserves existing users, events, and registrations. It creates only missing starter events.
 
 ```bash
 # From the project root:
-npm run seed
+npm --prefix server run seed -- --confirm
 
 # Or directly from the server folder:
 cd server
-npm run seed
+npm run seed -- --confirm
 ```
 
-> **Note:** Seeding requires `SEED_CONFIRM=true` in `server/.env` or passing the `--force` flag.
+> **Note:** Seeding requires `SEED_ADMIN_EMAIL`, a unique `SEED_ADMIN_PASSWORD` of 14–72 characters containing lowercase, uppercase, numeric, and special characters, and the explicit `--confirm` flag. If the configured email already exists, the script verifies the supplied password before assigning the protected Seed Admin designation. It never deletes existing records.
 
 ---
 
@@ -278,7 +283,7 @@ npm run dev
 
 * **Frontend Client:** [http://localhost:5173](http://localhost:5173)
 * **Backend REST API:** [http://localhost:5000](http://localhost:5000)
-* **API Health Check:** [http://localhost:5000/api/events](http://localhost:5000/api/events)
+* **API Health Check:** [http://localhost:5000/api/health](http://localhost:5000/api/health)
 
 Alternatively, you can run them in separate terminals:
 
@@ -303,22 +308,23 @@ npm run dev
 | **Server** | `JWT_EXPIRES_IN` | No | `7d` | Token expiration duration. |
 | **Server** | `PORT` | No | `5000` | Port on which the Express server listens. |
 | **Server** | `NODE_ENV` | No | `development` | Node environment (`development` or `production`). |
-| **Server** | `CLIENT_URL` | **Yes** | `http://localhost:5173` | Allowed origin for CORS and cookie dispatch. |
-| **Server** | `SEED_CONFIRM` | No | `false` | Safety guard to prevent accidental database wiping. |
-| **Server** | `SEED_ADMIN_EMAIL` | No | `admin@nie.ac.in` | Default seed administrator email. |
-| **Server** | `SEED_ADMIN_PASSWORD` | No | `niePass2026!` | Default seed administrator password. |
-| **Client** | `VITE_API_URL` | **Yes** | `http://localhost:5000/api` | Base URL consumed by the Axios client. |
+| **Server** | `CLIENT_URL` | No | `http://localhost:5173` | Allowed origin for CORS and cookie dispatch. |
+| **Server** | `SEED_ADMIN_EMAIL` | **Yes when seeding** | not set | Email for the protected Seed Admin account. |
+| **Server** | `SEED_ADMIN_PASSWORD` | **Yes when seeding** | not set | Unique 14–72 character password with lowercase, uppercase, numeric, and special characters. |
+| **Client** | `VITE_API_URL` | No | `http://localhost:5000/api` | Public API base URL consumed by Axios; do not store secrets here. |
 
 ---
 
-## 🔑 Default Credentials
+## 🔑 Seed Administrator
 
-After running `npm run seed`, you can authenticate with the administrative account:
+Set `SEED_ADMIN_EMAIL` and a unique `SEED_ADMIN_PASSWORD` in `server/.env` before seeding. The seed script requires a strong password and has no built-in credentials. Store it securely and do not commit it. Only the Seed Admin can use the centralized User Management section to promote or demote admins and disable or re-enable accounts.
 
 | Role | Email | Password | Access Level |
 | :--- | :--- | :--- | :--- |
-| **Administrator** | `admin@nie.ac.in` | `niePass2026!` | Full Admin Operations Console, Gate Check-In, Event CRUD, CSV Export |
+| **Seed Admin** | Value of `SEED_ADMIN_EMAIL` | Password set in `SEED_ADMIN_PASSWORD` | Admin dashboard, event management, and centralized user management |
 | **Student** | *Register on site* | *Chosen at registration* | Event Registration, Digital Admission Passes, Profile Management |
+
+Public registration always creates student accounts. Normal admins can manage only their own events and cannot access Seed Admin user management.
 
 > 💡 *To test as a student, navigate to `/register` and complete the academic onboarding form with your USN (e.g. `4NI23CS045`), department, year, and section.*
 
@@ -345,9 +351,18 @@ After running `npm run seed`, you can authenticate with the administrative accou
 * `DELETE /api/registrations/:id` — *(Student)* Cancel a reservation and release the seat capacity back to the event.
 
 ### 📊 Admin Oversight (`/api/admin`)
-* `GET /api/admin/dashboard` — *(Admin only)* Aggregate metrics: total events, upcoming events, total registrations, average fill rate.
+* `GET /api/admin/dashboard` — *(Admin only)* Aggregate metrics for events created by the authenticated admin.
+* `GET /api/admin/events` — *(Admin only)* List events created by the authenticated admin.
 * `GET /api/admin/events/:id/participants` — *(Admin only)* Detailed participant roster with USN, branch, section, and attendance status.
 * `PATCH /api/admin/registrations/:id/checkin` — *(Admin only)* Toggle verified gate check-in status for an attendee.
+
+### Seed Admin User Management (`/api/super-admin`)
+* `GET /api/super-admin/users` — *(Seed Admin only)* Search, filter, and page through users; returns account totals.
+* `GET /api/super-admin/users/:id` — *(Seed Admin only)* View safe account details.
+* `PATCH /api/super-admin/users/:id/promote` — *(Seed Admin only)* Promote a student to admin.
+* `PATCH /api/super-admin/users/:id/demote` — *(Seed Admin only)* Demote an admin to student.
+* `PATCH /api/super-admin/users/:id/disable` — *(Seed Admin only)* Disable an ordinary account and revoke its sessions.
+* `PATCH /api/super-admin/users/:id/enable` — *(Seed Admin only)* Re-enable a disabled account.
 
 ---
 

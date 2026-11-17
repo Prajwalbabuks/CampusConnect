@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Award, Calendar, ShieldCheck, ArrowRight, Users, Phone, GraduationCap } from 'lucide-react';
+import { Award, Calendar, ShieldCheck, ArrowRight, Users } from 'lucide-react';
 import { motion } from 'motion/react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';

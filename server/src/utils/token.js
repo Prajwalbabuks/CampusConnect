@@ -5,30 +5,34 @@ export function sendTokenResponse(res, user, statusCode = 200) {
   // request, so embedding name/email/usn in the token only adds stale PII.
   const payload = {
     id: user._id,
+    sessionVersion: user.sessionVersion ?? 0,
   };
 
   const token = jwt.sign(payload, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   });
+  const tokenExpiresAt = jwt.decode(token).exp * 1000;
 
   const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+    path: '/',
+    maxAge: Math.max(0, tokenExpiresAt - Date.now()),
   };
 
   res.cookie('token', token, cookieOptions);
 
   return res.status(statusCode).json({
     success: true,
-    token,
     user: {
       id: user._id,
       _id: user._id,
       name: user.name,
       email: user.email,
       role: user.role,
+      isSuperAdmin: user.isSuperAdmin === true,
+      isActive: user.isActive !== false,
       usn: user.usn || '',
       department: user.department || 'Computer Science & Engineering',
       branchCode: user.branchCode || 'CSE',
@@ -45,7 +49,9 @@ export function sendTokenResponse(res, user, statusCode = 200) {
 export function clearTokenCookie(res) {
   res.cookie('token', '', {
     httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
     expires: new Date(0),
     sameSite: 'lax',
+    path: '/',
   });
 }

@@ -84,12 +84,12 @@ export async function login(req, res, next) {
     const { email, password } = parsed.data;
 
     // Find user and explicitly include password hash for bcrypt check
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email }).select('+password +sessionVersion');
 
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials. No account found with this email.',
+        message: 'Invalid email or password.',
       });
     }
 
@@ -97,7 +97,14 @@ export async function login(req, res, next) {
     if (!isMatch) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid password. Please check your credentials.',
+        message: 'Invalid email or password.',
+      });
+    }
+
+    if (!user.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password.',
       });
     }
 
@@ -122,8 +129,26 @@ export async function logout(req, res) {
 // @route   GET /api/auth/me
 // @access  Authenticated
 export async function getMe(req, res) {
+  const user = req.user;
   return res.status(200).json({
     success: true,
-    user: req.user,
+    user: {
+      id: user._id,
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      isSuperAdmin: user.isSuperAdmin === true,
+      isActive: user.isActive !== false,
+      usn: user.usn || '',
+      department: user.department || 'Computer Science & Engineering',
+      branchCode: user.branchCode || 'CSE',
+      year: user.year || '2nd Year',
+      semester: user.semester || '4th Semester',
+      section: user.section || 'Section A',
+      batch: user.batch || '2024',
+      phone: user.phone || '',
+      institution: user.institution || 'National Institute of Engineering',
+    },
   });
 }

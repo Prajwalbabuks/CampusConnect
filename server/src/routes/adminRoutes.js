@@ -1,6 +1,7 @@
 import express from 'express';
 import {
   getDashboardStats,
+  getMyEvents,
   getEventParticipants,
   toggleAttendanceCheckIn,
 } from '../controllers/adminController.js';
@@ -13,6 +14,7 @@ router.use(protect);
 router.use(requireAdmin);
 
 router.get('/dashboard', getDashboardStats);
+router.get('/events', getMyEvents);
 router.get('/events/:id/participants', getEventParticipants);
 router.patch('/registrations/:registrationId/checkin', toggleAttendanceCheckIn);
 

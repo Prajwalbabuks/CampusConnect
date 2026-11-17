@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldCheck, UserCheck, Menu, X, LogOut, Ticket, ChevronRight, ListFilter, Plus } from 'lucide-react';
+import { ShieldCheck, UserCheck, Menu, X, LogOut, Ticket, ChevronRight } from 'lucide-react';
 import Button from './ui/Button';
 import { useAuth } from '../context/AuthContext';
 

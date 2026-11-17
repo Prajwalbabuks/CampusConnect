@@ -14,9 +14,9 @@ export async function connectDB() {
     console.log(`[Database] MongoDB Connected: ${conn.connection.host}`);
     return true;
   } catch (error) {
-    console.error(`[Database] Failed to connect to MongoDB at: ${process.env.MONGO_URI}`);
+    console.error('[Database] Failed to connect to MongoDB. Verify MONGO_URI in server/.env.');
     console.error(`[Database Guidance] If using MongoDB Atlas, replace MONGO_URI in 'server/.env' with your Atlas connection string.`);
-    console.error(`[Database Guidance] Error details: ${error.message}`);
+    console.error(`[Database Guidance] Error type: ${error.name || 'ConnectionError'}`);
     // Fail fast: the API is useless without its database, so surface the failure at
     // startup instead of serving a broken server that 500s on every request.
     throw error;

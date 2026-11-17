@@ -49,6 +49,16 @@ export const loginSchema = z.object({
     .min(1, 'Please provide your password'),
 });
 
+export const superAdminUsersQuerySchema = z.object({
+  search: z.string().trim().max(100, 'Search text cannot exceed 100 characters').optional(),
+  role: z.enum(['student', 'admin', 'super_admin']).optional(),
+  status: z.enum(['active', 'disabled']).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+export const objectIdSchema = z.string().regex(/^[a-f\d]{24}$/i, 'A valid user ID is required');
+
 export const createEventSchema = z.object({
   title: z
     .string({ message: 'Please provide an event title' })

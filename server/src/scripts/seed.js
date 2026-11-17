@@ -1,10 +1,10 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import { fileURLToPath } from 'node:url';
 import User from '../models/User.js';
 import Event from '../models/Event.js';
-import Registration from '../models/Registration.js';
 
-dotenv.config();
+dotenv.config({ path: fileURLToPath(new URL('../../.env', import.meta.url)) });
 
 const INITIAL_EVENTS = [
   {
@@ -57,65 +57,100 @@ const INITIAL_EVENTS = [
   },
 ];
 
-// Provisioned administrator credentials (override via .env — never hardcode
-// production credentials here).
-const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL || 'admin@nie.ac.in';
-const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || 'niePass2026!';
+const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase();
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD;
+const CONFIRM_FLAG = process.argv.includes('--confirm');
 
-async function seedDatabase() {
-  // Safety lock: this script wipes the entire database. It previously ran
-  // unconditionally, so pointing it at production Atlas destroyed everything.
-  if (!process.env.MONGO_URI) {
-    console.error('[Seeder] MONGO_URI is not set. Configure server/.env first.');
-    process.exit(1);
+function validateSeedConfiguration() {
+  if (!process.env.MONGO_URI?.trim()) {
+    throw new Error('MONGO_URI is required. Configure server/.env first.');
   }
-
-  const confirmed = process.env.SEED_CONFIRM === 'true' || process.argv.includes('--force');
-  if (!confirmed) {
-    console.error('[Seeder] SAFETY LOCK: This script deletes ALL users, events and registrations.');
-    console.error('[Seeder] Set SEED_CONFIRM=true in server/.env (or run with --force) to proceed.');
-    process.exit(1);
+  if (!ADMIN_EMAIL || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ADMIN_EMAIL)) {
+    throw new Error('Set a valid SEED_ADMIN_EMAIL in server/.env.');
   }
-
-  try {
-    console.log('[Seeder] Connecting to MongoDB...');
-    await mongoose.connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 8000 });
-    console.log('[Seeder] Connected successfully!');
-
-    // Clean existing records
-    await Registration.deleteMany({});
-    await Event.deleteMany({});
-    await User.deleteMany({});
-    console.log('[Seeder] Cleared old records & mock students.');
-
-    // 1. Create Pre-Seeded Administrator Account (password is never logged)
-    const adminUser = await User.create({
-      name: 'NIE Event Convenor',
-      email: ADMIN_EMAIL,
-      password: ADMIN_PASSWORD,
-      role: 'admin',
-      department: 'Academic & Event Senate',
-      institution: 'National Institute of Engineering',
-    });
-    console.log(`[Seeder] Admin provisioned: ${adminUser.email}`);
-
-    // 2. Create Pristine Events with 0 bookings
-    const createdEvents = [];
-    for (const eventData of INITIAL_EVENTS) {
-      const ev = await Event.create({
-        ...eventData,
-        createdBy: adminUser._id,
-      });
-      createdEvents.push(ev);
-    }
-    console.log(`[Seeder] Published ${createdEvents.length} NIE events ready for real student bookings.`);
-
-    console.log('[Seeder] Database clean & ready for real user onboarding!');
-    process.exit(0);
-  } catch (error) {
-    console.error(`[Seeder Error] ${error.message}`);
-    process.exit(1);
+  const strongPassword =
+    typeof ADMIN_PASSWORD === 'string' &&
+    ADMIN_PASSWORD.length >= 14 &&
+    ADMIN_PASSWORD.length <= 72 &&
+    /[a-z]/.test(ADMIN_PASSWORD) &&
+    /[A-Z]/.test(ADMIN_PASSWORD) &&
+    /\d/.test(ADMIN_PASSWORD) &&
+    /[^A-Za-z0-9]/.test(ADMIN_PASSWORD);
+  if (!strongPassword) {
+    throw new Error(
+      'SEED_ADMIN_PASSWORD must be 14–72 characters and include lowercase, uppercase, numeric, and special characters.'
+    );
+  }
+  if (!CONFIRM_FLAG) {
+    throw new Error('No database records are deleted. Confirm Seed Admin provisioning with: npm run seed -- --confirm');
   }
 }
 
-seedDatabase();
+async function provisionSeedAdmin() {
+  validateSeedConfiguration();
+  await mongoose.connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 8000 });
+
+  // Add only the single Seed Admin constraint. Never sync/drop existing indexes.
+  await User.collection.createIndex(
+    { isSuperAdmin: 1 },
+    {
+      unique: true,
+      partialFilterExpression: { isSuperAdmin: true },
+      name: 'one_seed_admin_only',
+    }
+  );
+
+  const otherSeedAdmin = await User.findOne({ isSuperAdmin: true, email: { $ne: ADMIN_EMAIL } }).select('_id');
+  if (otherSeedAdmin) {
+    throw new Error('A Seed Admin already exists with a different configured email. No records were changed.');
+  }
+
+  let adminUser = await User.findOne({ email: ADMIN_EMAIL }).select('+password +sessionVersion');
+  if (adminUser) {
+    // Reusing an existing identity requires proof of its configured password.
+    const passwordMatches = await adminUser.comparePassword(ADMIN_PASSWORD);
+    if (!passwordMatches) {
+      throw new Error('The configured seed email already belongs to another account. No records were changed.');
+    }
+    const changed =
+      adminUser.isSuperAdmin !== true || adminUser.role !== 'admin' || adminUser.isActive === false;
+    adminUser.isSuperAdmin = true;
+    adminUser.role = 'admin';
+    adminUser.isActive = true;
+    if (changed) adminUser.sessionVersion = (adminUser.sessionVersion ?? 0) + 1;
+    await adminUser.save();
+  } else {
+    adminUser = await User.create({
+      name: 'CampusConnect Seed Admin',
+      email: ADMIN_EMAIL,
+      password: ADMIN_PASSWORD,
+      role: 'admin',
+      isSuperAdmin: true,
+      isActive: true,
+      department: 'Academic & Event Senate',
+      institution: 'National Institute of Engineering',
+    });
+  }
+
+  // Preserve existing events and registrations. Add only missing starter events.
+  let createdCount = 0;
+  for (const eventData of INITIAL_EVENTS) {
+    const existingEvent = await Event.findOne({ title: eventData.title }).select('_id');
+    if (existingEvent) continue;
+    await Event.create({ ...eventData, createdBy: adminUser._id });
+    createdCount += 1;
+  }
+
+  console.log(`[Seeder] Seed Admin is ready. Added ${createdCount} missing starter event(s).`);
+}
+
+provisionSeedAdmin()
+  .catch((error) => {
+    console.error(`[Seeder] ${error.message || 'Provisioning failed.'}`);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.disconnect();
+    }
+  });

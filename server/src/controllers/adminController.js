@@ -1,20 +1,31 @@
 import Event from '../models/Event.js';
 import Registration from '../models/Registration.js';
-import User from '../models/User.js';
+import { eventStartDateTime } from '../utils/eventTime.js';
+
+// @desc    Get events owned by the authenticated administrator
+// @route   GET /api/admin/events
+// @access  Admin Only
+export async function getMyEvents(req, res, next) {
+  try {
+    const events = await Event.find({ createdBy: req.user._id }).sort({ date: 1 });
+    return res.status(200).json({ success: true, count: events.length, data: events });
+  } catch (error) {
+    next(error);
+  }
+}
 
 // @desc    Get aggregate metrics for Administrator Dashboard
 // @route   GET /api/admin/dashboard
 // @access  Admin Only
 export async function getDashboardStats(req, res, next) {
   try {
-    const totalEvents = await Event.countDocuments();
-    const upcomingEvents = await Event.countDocuments({
-      date: { $gte: new Date() },
-    });
-    const totalRegistrations = await Registration.countDocuments();
+    const events = await Event.find({ createdBy: req.user._id }).select('_id capacity registeredCount date time');
+    const eventIds = events.map((event) => event._id);
+    const totalEvents = events.length;
+    const upcomingEvents = events.filter((event) => eventStartDateTime(event) >= new Date()).length;
+    const totalRegistrations = await Registration.countDocuments({ event: { $in: eventIds } });
 
-    // Calculate capacity metrics across all published events
-    const events = await Event.find().select('capacity registeredCount');
+    // Calculate capacity metrics only across this administrator's events.
     let totalCapacity = 0;
     let totalBooked = 0;
 
@@ -46,7 +57,7 @@ export async function getDashboardStats(req, res, next) {
 // @access  Admin Only
 export async function getEventParticipants(req, res, next) {
   try {
-    const event = await Event.findById(req.params.id);
+    const event = await Event.findOne({ _id: req.params.id, createdBy: req.user._id });
 
     if (!event) {
       return res.status(404).json({
@@ -100,9 +111,18 @@ export async function getEventParticipants(req, res, next) {
 // @access  Admin Only
 export async function toggleAttendanceCheckIn(req, res, next) {
   try {
-    const registration = await Registration.findById(req.params.registrationId).populate('user', 'name usn');
+    const registration = await Registration.findById(req.params.registrationId)
+      .populate('user', 'name usn')
+      .populate('event', 'createdBy');
 
     if (!registration) {
+      return res.status(404).json({
+        success: false,
+        message: 'Registration entry not found',
+      });
+    }
+
+    if (!registration.event || String(registration.event.createdBy) !== String(req.user._id)) {
       return res.status(404).json({
         success: false,
         message: 'Registration entry not found',

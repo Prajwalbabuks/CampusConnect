@@ -31,6 +31,20 @@ const UserSchema = new mongoose.Schema(
       enum: ['student', 'admin'],
       default: 'student',
     },
+    isSuperAdmin: {
+      type: Boolean,
+      default: false,
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    // Incremented when role or account status changes to revoke existing JWTs.
+    sessionVersion: {
+      type: Number,
+      default: 0,
+      select: false,
+    },
     usn: {
       type: String,
       trim: true,
@@ -80,6 +94,16 @@ const UserSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+  }
+);
+
+// At most one account may carry the protected Seed Admin designation.
+UserSchema.index(
+  { isSuperAdmin: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { isSuperAdmin: true },
+    name: 'one_seed_admin_only',
   }
 );
 

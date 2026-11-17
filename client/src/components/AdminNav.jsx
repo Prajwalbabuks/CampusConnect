@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Plus, ArrowLeft, LayoutDashboard, ListFilter, LogOut } from 'lucide-react';
+import { Plus, ArrowLeft, LayoutDashboard, ListFilter, LogOut, Users } from 'lucide-react';
 import { motion } from 'motion/react';
 import Button from './ui/Button';
 import { useAuth } from '../context/AuthContext';
@@ -12,6 +12,9 @@ export default function AdminNav() {
   const links = [
     { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
     { label: 'Manage Events', href: '/admin/events', icon: ListFilter },
+    ...(user?.isSuperAdmin === true
+      ? [{ label: 'User Management', href: '/admin/users', icon: Users }]
+      : []),
   ];
 
   const isCreating = location.pathname === '/admin/events/new';
@@ -20,20 +23,24 @@ export default function AdminNav() {
     <header className="sticky top-3.5 z-40 w-full px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto transition-all">
       <div className="rounded-2xl border border-[#3A362F] bg-[#161513]/95 backdrop-blur-xl shadow-floating-nav px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
         
-        {/* Left: Brand Identity & Public Catalog Return */}
+        {/* Left: Brand Identity & Explore All Events navigation */}
         <div className="flex items-center gap-3 shrink-0">
           <Link
             to="/events"
             className="text-stone-400 hover:text-white transition-colors p-1.5 rounded-xl hover:bg-[#211F1B] flex items-center gap-1.5 text-xs font-medium"
-            title="Return to Public Events Catalog"
+            title="Explore all public events"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span className="hidden md:inline">Public Catalog</span>
+            <span className="hidden md:inline">Explore All Events</span>
           </Link>
           <div className="h-4 w-px bg-[#3A362F] hidden sm:block" />
           <div className="flex items-center gap-2">
             <span className="font-bold text-sm sm:text-base tracking-tight text-white font-serif">
-              NIE <span className="text-[#F2A900] italic font-normal text-lg sm:text-xl ml-0.5">Admin Console</span>
+              NIE <span className="text-[#F2A900] italic font-normal text-lg sm:text-xl ml-0.5">
+                {user?.isSuperAdmin ? (
+                  <><span className="sm:hidden">Seed Admin</span><span className="hidden sm:inline">Seed Admin Console</span></>
+                ) : 'Admin Console'}
+              </span>
             </span>
             <span className="w-1.5 h-1.5 rounded-full bg-[#F2A900]" />
           </div>
@@ -69,6 +76,16 @@ export default function AdminNav() {
 
         {/* Right: Action & Identity Controls */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          {user?.isSuperAdmin === true && (
+            <Link
+              to="/admin/users"
+              aria-label="User Management"
+              title="User Management"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#3A362F] text-stone-300 transition hover:border-[#F2A900]/50 hover:text-[#F2A900] sm:hidden"
+            >
+              <Users className="h-4 w-4" />
+            </Link>
+          )}
           {!isCreating && (
             <Button to="/admin/events/new" variant="primary" size="sm" icon={Plus}>
               <span className="hidden sm:inline">Create Event</span>

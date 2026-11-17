@@ -6,7 +6,7 @@ import AdminNav from '../components/AdminNav';
 import Footer from '../components/Footer';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
-import { eventApi } from '../services/api';
+import { adminApi, eventApi } from '../services/api';
 import { CATEGORY_FILTERS } from '../services/catalog';
 import { formatEventDate, getCategoryColor } from '../utils/eventUi';
 
@@ -24,7 +24,7 @@ export default function AdminEventsPage() {
     try {
       setLoading(true);
       setError('');
-      const data = await eventApi.getEvents();
+      const data = await adminApi.getMyEvents();
       setEvents(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err.message || 'Failed to load events');

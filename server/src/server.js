@@ -1,6 +1,7 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import { fileURLToPath } from 'node:url';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { connectDB } from './config/db.js';
@@ -13,19 +14,23 @@ import authRoutes from './routes/authRoutes.js';
 import eventRoutes from './routes/eventRoutes.js';
 import registrationRoutes from './routes/registrationRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import superAdminRoutes from './routes/superAdminRoutes.js';
 
 // Load environment variables
-dotenv.config();
+dotenv.config({ path: fileURLToPath(new URL('../.env', import.meta.url)) });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
-// Fail fast on missing critical configuration (a missing secret previously made
-// every register/login request 500 at runtime with no explanation).
-if (!process.env.JWT_SECRET) {
-  console.error('[Config] JWT_SECRET is not set. Copy server/.env.example to server/.env and generate a secret with:');
-  console.error('[Config]   node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
+// Fail fast on required configuration before attempting database startup.
+const missingConfig = ['MONGO_URI', 'JWT_SECRET'].filter((name) => !process.env[name]?.trim());
+if (missingConfig.length > 0) {
+  console.error(`[Config] Required environment variable(s) missing: ${missingConfig.join(', ')}.`);
+  console.error('[Config] Fill in server/.env using server/.env.example.');
+  if (missingConfig.includes('JWT_SECRET')) {
+    console.error('[Config] Generate a secret with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
+  }
   process.exit(1);
 }
 
@@ -61,6 +66,7 @@ app.use('/api/auth', authRateLimiter, authRoutes);
 app.use('/api/events', apiRateLimiter, eventRoutes);
 app.use('/api/registrations', apiRateLimiter, registrationRoutes);
 app.use('/api/admin', apiRateLimiter, adminRoutes);
+app.use('/api/super-admin', apiRateLimiter, superAdminRoutes);
 
 // Global Error Handler
 app.use(errorHandler);

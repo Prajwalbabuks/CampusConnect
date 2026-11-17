@@ -8,6 +8,16 @@ export function requireAdmin(req, res, next) {
   next();
 }
 
+export function requireSuperAdmin(req, res, next) {
+  if (!req.user || req.user.role !== 'admin' || req.user.isSuperAdmin !== true) {
+    return res.status(403).json({
+      success: false,
+      message: 'Access restricted: Seed Admin authorization required',
+    });
+  }
+  next();
+}
+
 export function requireStudent(req, res, next) {
   if (!req.user || req.user.role !== 'student') {
     return res.status(403).json({

@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Users, Award, Percent, ArrowRight, AlertCircle } from 'lucide-react';
+import { Calendar, Users, Award, Percent, ArrowRight, AlertCircle, ShieldCheck } from 'lucide-react';
 import { motion } from 'motion/react';
 import AdminNav from '../components/AdminNav';
 import Footer from '../components/Footer';
 import StatCard from '../components/ui/StatCard';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
-import { adminApi, eventApi } from '../services/api';
+import { adminApi } from '../services/api';
 import { formatEventDate, getCategoryColor } from '../utils/eventUi';
+import { useAuth } from '../context/AuthContext';
 
 export default function AdminDashboardPage() {
+  const { user } = useAuth();
   const [stats, setStats] = useState({ totalEvents: 0, upcomingEvents: 0, totalRegistrations: 0, averageFillRate: '0%' });
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,7 +24,7 @@ export default function AdminDashboardPage() {
     try {
       const [statsData, eventsData] = await Promise.all([
         adminApi.getDashboardStats(),
-        eventApi.getEvents(),
+        adminApi.getMyEvents(),
       ]);
       if (statsData) setStats(statsData);
       setEvents(Array.isArray(eventsData) ? eventsData : []);
@@ -54,7 +56,7 @@ export default function AdminDashboardPage() {
               <span>NIE Operational Senate</span>
             </div>
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#171715] font-serif">
-              Operations Dashboard
+              {user?.isSuperAdmin ? 'Seed Admin Dashboard' : 'Operations Dashboard'}
             </h1>
             <p className="mt-1 text-sm text-[#57534E]">
               Real-time monitoring of National Institute of Engineering hall capacities, listings, and participant rosters.
@@ -68,6 +70,22 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         </motion.div>
+
+        {user?.isSuperAdmin === true && (
+          <Link
+            to="/admin/users"
+            className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-[#D8C27E] bg-[#FFF8E3] p-5 shadow-xs transition hover:border-[#B88A1A] hover:shadow-sm"
+          >
+            <span className="flex items-start gap-3">
+              <span className="rounded-xl bg-[#F2A900]/20 p-2.5 text-[#8F5F00]"><ShieldCheck className="h-5 w-5" /></span>
+              <span>
+                <span className="block font-semibold text-[#171715]">Centralized User Management</span>
+                <span className="mt-1 block text-sm text-[#57534E]">Review accounts, manage admin roles, and enable or disable access.</span>
+              </span>
+            </span>
+            <span className="inline-flex items-center gap-2 text-sm font-semibold text-[#8F5F00]">Open management <ArrowRight className="h-4 w-4" /></span>
+          </Link>
+        )}
 
         {/* Error Banner */}
         {error && (
@@ -148,6 +166,12 @@ export default function AdminDashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E5E0D6]/60">
+                {loading && (
+                  <tr><td colSpan={6} className="px-6 py-8 text-center text-[#77736A]">Loading your events...</td></tr>
+                )}
+                {!loading && events.length === 0 && (
+                  <tr><td colSpan={6} className="px-6 py-8 text-center text-[#77736A]">You have not created any events yet.</td></tr>
+                )}
                 {events.slice(0, 5).map((event) => {
                   const formattedDate = formatEventDate(event.date);
                   const fillPercentage = event.capacity

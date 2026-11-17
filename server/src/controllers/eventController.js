@@ -143,7 +143,7 @@ export async function createEvent(req, res, next) {
 // @access  Admin Only
 export async function updateEvent(req, res, next) {
   try {
-    const existing = await Event.findById(req.params.id);
+    const existing = await Event.findOne({ _id: req.params.id, createdBy: req.user._id });
 
     if (!existing) {
       return res.status(404).json({
@@ -202,7 +202,7 @@ export async function updateEvent(req, res, next) {
 // @access  Admin Only
 export async function deleteEvent(req, res, next) {
   try {
-    const event = await Event.findById(req.params.id);
+    const event = await Event.findOne({ _id: req.params.id, createdBy: req.user._id });
 
     if (!event) {
       return res.status(404).json({

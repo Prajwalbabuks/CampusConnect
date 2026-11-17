@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
-import { Calendar, Clock, MapPin, ArrowLeft, CheckCircle2, ShieldAlert, Lock, ArrowRight, Ticket, ShieldCheck, AlertCircle, Building2, Users, Edit, ListFilter } from 'lucide-react';
+import { Calendar, Clock, MapPin, ArrowLeft, CheckCircle2, ShieldAlert, Lock, ArrowRight, Ticket, ShieldCheck, AlertCircle, Building2, Users, Edit } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -345,8 +345,8 @@ export default function EventDetailPage() {
                     <span>{actionError}</span>
                   </div>
                 )}
-                {user?.role === 'admin' ? (
-                  /* Administrator Controls */
+                {user?.role === 'admin' && String(event.createdBy) === String(user._id) ? (
+                  /* Administrator Controls for this admin's event */
                   <div className="space-y-3">
                     <div className="bg-[#161513] p-3.5 rounded-2xl border border-[#3A362F] mb-3 text-xs font-mono space-y-1">
                       <div className="flex justify-between">
@@ -381,6 +381,13 @@ export default function EventDetailPage() {
                     <p className="text-[10px] text-center text-stone-400 pt-2 font-mono">
                       Institutional Admin Privileges Active · Student pass issuance disabled
                     </p>
+                  </div>
+                ) : user?.role === 'admin' ? (
+                  <div className="rounded-2xl border border-[#3A362F] bg-[#161513] p-4 text-xs text-stone-300">
+                    This event belongs to another administrator. Manage your own events from the admin dashboard.
+                    <Button to="/admin/events" variant="outline-dark" size="sm" className="mt-3 w-full">
+                      My Events
+                    </Button>
                   </div>
                 ) : !isAuthenticated ? (
                   /* Unauthenticated State: Clearly prompts institutional sign in */

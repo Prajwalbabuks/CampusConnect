@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import Registration from '../models/Registration.js';
 import Event from '../models/Event.js';
+import { eventStartDateTime } from '../utils/eventTime.js';
 
 const TICKET_RETRY_LIMIT = 5;
 
@@ -27,7 +28,8 @@ export async function registerForEvent(req, res, next) {
         message: 'Registration is closed: This event has been cancelled',
       });
     }
-    if (new Date(event.date) < new Date()) {
+    const eventStartsAt = eventStartDateTime(event);
+    if (!eventStartsAt || eventStartsAt < new Date()) {
       return res.status(400).json({
         success: false,
         message: 'Registration is closed: This event has already taken place',
@@ -69,6 +71,7 @@ export async function registerForEvent(req, res, next) {
     // Math.random space was only 9,000 and collided on the unique index,
     // surfacing as nonsense 409s). The compound (user, event) unique index
     // still backstops duplicate registrations.
+    let seatNeedsRelease = true;
     try {
       let registration = null;
       let duplicateReservation = false;
@@ -101,6 +104,7 @@ export async function registerForEvent(req, res, next) {
 
       if (duplicateReservation) {
         await releaseSeat(eventId);
+        seatNeedsRelease = false;
         return res.status(409).json({
           success: false,
           message: 'You already hold a confirmed seat reservation for this event (Atomic Lock: 1 seat per USN)',
@@ -109,9 +113,10 @@ export async function registerForEvent(req, res, next) {
 
       if (!registration) {
         // Exhausted ticket-code retries — should be practically impossible
-        await releaseSeat(eventId);
         throw lastError || new Error('Unable to mint a unique ticket code');
       }
+
+      seatNeedsRelease = false;
 
       // Populate event details for immediate frontend consumption
       const populated = await Registration.findById(registration._id).populate('event');
@@ -123,7 +128,7 @@ export async function registerForEvent(req, res, next) {
       });
     } catch (createError) {
       // Roll back the seat hold so registeredCount never drifts from reality
-      await releaseSeat(eventId);
+      if (seatNeedsRelease) await releaseSeat(eventId);
       throw createError;
     }
   } catch (error) {
@@ -169,7 +174,8 @@ export async function cancelRegistration(req, res, next) {
 
     // Attendance history for completed events is final — no retroactive cancels
     const event = await Event.findById(eventId);
-    if (event && new Date(event.date) < new Date()) {
+    const eventStartsAt = event && eventStartDateTime(event);
+    if (event && (!eventStartsAt || eventStartsAt < new Date())) {
       return res.status(400).json({
         success: false,
         message: 'This event has already taken place; its attendance record can no longer be changed',

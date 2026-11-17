@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { User, Mail, Lock, ArrowRight, ShieldCheck, AlertCircle, Eye, EyeOff, Phone, GraduationCap, Building2 } from 'lucide-react';
+import { User, Mail, Lock, ArrowRight, ShieldCheck, AlertCircle, Eye, EyeOff, Phone, GraduationCap } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
 import { EVENT_DEPARTMENTS } from '../services/catalog';

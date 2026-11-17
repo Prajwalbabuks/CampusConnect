@@ -7,7 +7,7 @@ import Footer from '../components/Footer';
 import Button from '../components/ui/Button';
 import { eventApi } from '../services/api';
 import { EVENT_CATEGORIES, EVENT_DEPARTMENTS } from '../services/catalog';
-import { toLocalNoonISO, toDateInputValue, getSeatsInfo } from '../utils/eventUi';
+import { toLocalNoonISO, toDateInputValue } from '../utils/eventUi';
 
 export default function AdminEditEventPage() {
   const { id } = useParams();

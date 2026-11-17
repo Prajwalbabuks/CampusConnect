@@ -15,6 +15,7 @@ import AdminEventsPage from './pages/AdminEventsPage';
 import AdminCreateEventPage from './pages/AdminCreateEventPage';
 import AdminEditEventPage from './pages/AdminEditEventPage';
 import AdminParticipantsPage from './pages/AdminParticipantsPage';
+import SuperAdminUsersPage from './pages/SuperAdminUsersPage';
 
 function ScrollToTop() {
   const { pathname, hash } = useLocation();
@@ -36,7 +37,7 @@ function ScrollToTop() {
   return null;
 }
 
-function ProtectedRoute({ children, role }) {
+function ProtectedRoute({ children, role, superAdmin = false }) {
   const { user, isAuthenticated } = useAuth();
   const location = useLocation();
 
@@ -45,6 +46,10 @@ function ProtectedRoute({ children, role }) {
   }
 
   if (role && user?.role !== role) {
+    return <Navigate to={user?.role === 'admin' ? '/admin' : '/'} replace />;
+  }
+
+  if (superAdmin && user?.isSuperAdmin !== true) {
     return <Navigate to={user?.role === 'admin' ? '/admin' : '/'} replace />;
   }
 
@@ -136,6 +141,14 @@ export default function App() {
             element={
               <ProtectedRoute role="admin">
                 <AdminParticipantsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute role="admin" superAdmin>
+                <SuperAdminUsersPage />
               </ProtectedRoute>
             }
           />

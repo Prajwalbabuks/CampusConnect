@@ -134,6 +134,11 @@ export const registrationApi = {
 // Administrator Endpoints
 // -------------------------------------------------------------
 export const adminApi = {
+  getMyEvents: async () => {
+    const res = await api.get('/admin/events');
+    return res.data.data;
+  },
+
   getDashboardStats: async () => {
     const res = await api.get('/admin/dashboard');
     return res.data.stats;
@@ -146,6 +151,41 @@ export const adminApi = {
 
   toggleCheckIn: async (registrationId) => {
     const res = await api.patch(`/admin/registrations/${registrationId}/checkin`);
+    return res.data;
+  },
+};
+
+// -------------------------------------------------------------
+// Seed Admin user-management endpoints
+// -------------------------------------------------------------
+export const superAdminApi = {
+  listUsers: async (params = {}) => {
+    const res = await api.get('/super-admin/users', { params });
+    return res.data;
+  },
+
+  getUser: async (id) => {
+    const res = await api.get(`/super-admin/users/${id}`);
+    return res.data.user;
+  },
+
+  promoteUser: async (id) => {
+    const res = await api.patch(`/super-admin/users/${id}/promote`);
+    return res.data;
+  },
+
+  demoteUser: async (id) => {
+    const res = await api.patch(`/super-admin/users/${id}/demote`);
+    return res.data;
+  },
+
+  disableUser: async (id) => {
+    const res = await api.patch(`/super-admin/users/${id}/disable`);
+    return res.data;
+  },
+
+  enableUser: async (id) => {
+    const res = await api.patch(`/super-admin/users/${id}/enable`);
     return res.data;
   },
 };
